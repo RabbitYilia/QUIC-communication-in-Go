@@ -63,6 +63,7 @@ func Server(conn quic.Session) {
 		plaintext, err := ciper.Open(nil, geratenonce(), message[:messagelen], nil)
 		if err != nil {
 			log.Println("Failed to decrypt or authenticate message:", err)
+			continue
 		}
 		log.Println(string(plaintext))
 		ciphertext := ciper.Seal(nil, geratenonce(), []byte("Get"), nil)
