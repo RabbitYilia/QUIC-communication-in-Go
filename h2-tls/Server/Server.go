@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	quic "QUIC-communication-in-Go/h2-tls/quic-go"
-	"QUIC-communication-in-Go/h2-tls/quic-go/ex/protocol"
-	"QUIC-communication-in-Go/h2-tls/quic-go/h2quic"
+	quic "github.com/lucas-clemente/quic-go"
+	"github.com/lucas-clemente/quic-go/h2quic"
+	"github.com/lucas-clemente/quic-go/internal/protocol"
+	"github.com/lucas-clemente/quic-go/internal/utils"
 
 	"github.com/julienschmidt/httprouter"
 	aead "golang.org/x/crypto/chacha20poly1305"
