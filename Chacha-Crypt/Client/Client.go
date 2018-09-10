@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/cipher"
 	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
@@ -29,29 +30,29 @@ func main() {
 
 func clientMain(stream quic.Stream) {
 	key := "Password"
-	h := sha256.New()
-	h.Write([]byte(key))
-	ciper, err := aead.New(h.Sum(nil))
+	ciper, err := gerateAEAD(key)
 	recvbuffer := make([]byte, 1048576)
 	message := "foobar"
 	fmt.Printf("Client: Sending '%s'\n", message)
-	nonceint := int(time.Now().Unix()/300) * 300
-	noncestr := strconv.Itoa(nonceint)
-	h.Reset()
-	h.Write([]byte(noncestr))
-	nonce := h.Sum(nil)[:12]
-	ciphertext := ciper.Seal(nil, nonce, []byte(message), nil)
+	ciphertext := ciper.Seal(nil, geratenonce(), []byte(message), nil)
 	_, err = stream.Write(ciphertext)
 	if err != nil {
 		log.Panicln(err)
 		return
 	}
 	recvmsglen, err := stream.Read(recvbuffer)
-	nonceint = int(time.Now().Unix()/300) * 300
-	noncestr = strconv.Itoa(nonceint)
-	h.Reset()
-	h.Write([]byte(noncestr))
-	nonce = h.Sum(nil)[:12]
-	plaintext, err := ciper.Open(nil, nonce, recvbuffer[:recvmsglen], nil)
+	plaintext, err := ciper.Open(nil, geratenonce(), recvbuffer[:recvmsglen], nil)
 	log.Println(string(plaintext))
+}
+
+func geratenonce() []byte {
+	hash := sha256.New()
+	hash.Write([]byte(strconv.Itoa(int(time.Now().Unix()/300) * 300)))
+	return hash.Sum(nil)[:12]
+}
+
+func gerateAEAD(password string) (AEAD cipher.AEAD, err error) {
+	hash := sha256.New()
+	hash.Write([]byte(password))
+	return aead.New(hash.Sum(nil))
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -35,9 +36,7 @@ func main() {
 // Start a server that echos all data on the first stream opened by the client
 func Server(conn quic.Session) {
 	key := "Password"
-	h := sha256.New()
-	h.Write([]byte(key))
-	ciper, err := aead.New(h.Sum(nil))
+	ciper, err := gerateAEAD(key)
 	if err != nil {
 		conn.Close()
 		log.Println(err)
@@ -61,22 +60,12 @@ func Server(conn quic.Session) {
 		if messagelen == 0 {
 			continue
 		}
-		nonceint := int(time.Now().Unix()/300) * 300
-		noncestr := strconv.Itoa(nonceint)
-		h.Reset()
-		h.Write([]byte(noncestr))
-		nonce := h.Sum(nil)[:12]
-		plaintext, err := ciper.Open(nil, nonce, message[:messagelen], nil)
+		plaintext, err := ciper.Open(nil, geratenonce(), message[:messagelen], nil)
 		if err != nil {
 			log.Println("Failed to decrypt or authenticate message:", err)
 		}
 		log.Println(string(plaintext))
-		nonceint = int(time.Now().Unix()/300) * 300
-		noncestr = strconv.Itoa(nonceint)
-		h.Reset()
-		h.Write([]byte(noncestr))
-		nonce = h.Sum(nil)[:12]
-		ciphertext := ciper.Seal(nil, nonce, []byte("Get"), nil)
+		ciphertext := ciper.Seal(nil, geratenonce(), []byte("Get"), nil)
 		stream.Write(ciphertext)
 	}
 }
@@ -100,4 +89,16 @@ func generateTLSConfig() *tls.Config {
 		panic(err)
 	}
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
+}
+
+func geratenonce() []byte {
+	hash := sha256.New()
+	hash.Write([]byte(strconv.Itoa(int(time.Now().Unix()/300) * 300)))
+	return hash.Sum(nil)[:12]
+}
+
+func gerateAEAD(password string) (AEAD cipher.AEAD, err error) {
+	hash := sha256.New()
+	hash.Write([]byte(password))
+	return aead.New(hash.Sum(nil))
 }
