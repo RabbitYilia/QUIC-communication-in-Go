@@ -18,7 +18,7 @@ import (
 func main() {
 	router := httprouter.New()
 	router.GET("/", index)
-	h2quic.ListenAndServeQUIC("localhost:6161", "./server.crt", "./server.key", router)
+	h2quic.ListenAndServeQUIC("127.0.0.1:6161", "./server.crt", "./server.key", router)
 
 }
 
