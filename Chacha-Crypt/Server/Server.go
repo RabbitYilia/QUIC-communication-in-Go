@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -33,8 +34,10 @@ func main() {
 
 // Start a server that echos all data on the first stream opened by the client
 func Server(conn quic.Session) {
-	key := []byte("Password")
-	ciper, err := aead.New(key)
+	key := "Password"
+	h := sha256.New()
+	h.Write([]byte(key))
+	ciper, err := aead.New(h.Sum(nil))
 	if err != nil {
 		conn.Close()
 		log.Println(err)
@@ -58,17 +61,22 @@ func Server(conn quic.Session) {
 		if messagelen == 0 {
 			continue
 		}
-		nonce := int(time.Now().Unix()/300) * 300
-		noncestr := strconv.Itoa(nonce)
-		plaintext, err := ciper.Open(nil, []byte(noncestr), message[:messagelen], nil)
+		nonceint := int(time.Now().Unix()/300) * 300
+		noncestr := strconv.Itoa(nonceint)
+		h.Reset()
+		h.Write([]byte(noncestr))
+		nonce := h.Sum(nil)[:12]
+		plaintext, err := ciper.Open(nil, nonce, message[:messagelen], nil)
 		if err != nil {
 			log.Println("Failed to decrypt or authenticate message:", err)
 		}
-
 		log.Println(string(plaintext))
-		nonce = int(time.Now().Unix()/300) * 300
-		noncestr = strconv.Itoa(nonce)
-		ciphertext := ciper.Seal(nil, []byte(noncestr), []byte("Get"), nil)
+		nonceint = int(time.Now().Unix()/300) * 300
+		noncestr = strconv.Itoa(nonceint)
+		h.Reset()
+		h.Write([]byte(noncestr))
+		nonce = h.Sum(nil)[:12]
+		ciphertext := ciper.Seal(nil, nonce, []byte("Get"), nil)
 		stream.Write(ciphertext)
 	}
 }
